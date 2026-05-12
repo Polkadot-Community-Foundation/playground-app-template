@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { enumValue, getTruApi } from "@parity/product-sdk-host";
+import { AllocatableResource, AllocationOutcome, type CodecType } from "@novasamatech/host-api";
 import {
     AccountNotFoundError,
     SignerManager,
@@ -14,16 +15,16 @@ import {
 
 const DEFAULT_PRODUCT_ACCOUNT_DOT_NS = "playground.dot";
 const PRODUCT_ACCOUNT_DERIVATION_INDEX = 0;
+
 const RESOURCE_ALLOCATION_REQUESTS = [
     { tag: "StatementStoreAllowance", value: undefined },
     { tag: "BulletInAllowance", value: undefined },
     { tag: "SmartContractAllowance", value: PRODUCT_ACCOUNT_DERIVATION_INDEX },
     { tag: "AutoSigning", value: undefined },
-] as const;
+] as const satisfies ReadonlyArray<CodecType<typeof AllocatableResource>>;
 
-type ResourceAllocationRequest = (typeof RESOURCE_ALLOCATION_REQUESTS)[number];
-export type ResourceAllocationKind = ResourceAllocationRequest["tag"];
-export type ResourceAllocationOutcome = "Allocated" | "Rejected" | "NotAvailable";
+export type ResourceAllocationKind = CodecType<typeof AllocatableResource>["tag"];
+export type ResourceAllocationOutcome = CodecType<typeof AllocationOutcome>["tag"];
 
 export interface ResourceAllocationEntry {
     resource: ResourceAllocationKind;
@@ -32,24 +33,18 @@ export interface ResourceAllocationEntry {
 
 export interface ResourceAllocationState {
     status: "idle" | "requesting" | "complete" | "unavailable" | "error";
-    entries: ResourceAllocationEntry[];
+    entries: readonly ResourceAllocationEntry[];
     error: string | null;
 }
 
-interface VersionedResponse<T> {
-    tag: string;
-    value: T;
-}
-
-interface ResultAsync<T, E> {
-    match<A, B = A>(ok: (value: T) => A, err: (error: E) => B): Promise<A | B>;
-}
+const INITIAL_RESOURCE_ALLOCATION_ENTRIES: readonly ResourceAllocationEntry[] =
+    RESOURCE_ALLOCATION_REQUESTS.map(request => ({ resource: request.tag, outcome: null }));
 
 function isLoopbackHost(hostname: string): boolean {
     return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-export function getProductAccountIdentifier(): string {
+function getProductAccountIdentifier(): string {
     const configuredIdentifier = import.meta.env.VITE_PRODUCT_ACCOUNT_ID?.trim();
     if (configuredIdentifier) return configuredIdentifier;
 
@@ -73,33 +68,13 @@ function initialState(): SignerState {
 function initialResourceAllocationState(): ResourceAllocationState {
     return {
         status: "idle",
-        entries: RESOURCE_ALLOCATION_REQUESTS.map(request => ({
-            resource: request.tag,
-            outcome: null,
-        })),
+        entries: INITIAL_RESOURCE_ALLOCATION_ENTRIES,
         error: null,
     };
 }
 
-function formatHostError(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    if (error && typeof error === "object") {
-        const record = error as Record<string, unknown>;
-        if (typeof record.reason === "string") return record.reason;
-        if (typeof record.message === "string") return record.message;
-        if (typeof record.tag === "string") {
-            const value = record.value;
-            if (value && typeof value === "object" && typeof (value as { reason?: unknown }).reason === "string") {
-                return `${record.tag}: ${(value as { reason: string }).reason}`;
-            }
-            return record.tag;
-        }
-    }
-    return String(error);
-}
-
 class ProductAccountSignerManager {
-    private readonly productAccountIdentifier = getProductAccountIdentifier();
+    readonly productAccountIdentifier = getProductAccountIdentifier();
     private readonly manager = new SignerManager({
         dappName: this.productAccountIdentifier,
         ss58Prefix: 42,
@@ -111,23 +86,25 @@ class ProductAccountSignerManager {
     private connectPromise: Promise<Result<SignerAccount[], SignerError>> | null = null;
 
     constructor() {
-        this.manager.subscribe(state => {
-            if (state.status === "disconnected") {
-                this.setState({
-                    status: "disconnected",
-                    accounts: [],
-                    selectedAccount: null,
-                    activeProvider: null,
-                    error: state.error,
-                });
-            } else if (state.status === "connecting") {
-                this.setState({
-                    status: "connecting",
-                    activeProvider: state.activeProvider,
-                    error: state.error,
-                });
+        // connecting/connected transitions are owned by connect() since the wrapper
+        // exposes a derived product account. Only mirror mid-session disconnects, and
+        // guard against re-firing when connectInner already set disconnected.
+        this.manager.subscribe(underlyingState => {
+            if (underlyingState.status === "disconnected" && this.state.status !== "disconnected") {
+                this.transitionToDisconnected(underlyingState.error);
             }
         });
+    }
+
+    private transitionToDisconnected(error: SignerError | null) {
+        this.setState({
+            status: "disconnected",
+            accounts: [],
+            selectedAccount: null,
+            activeProvider: null,
+            error,
+        });
+        this.setResourceAllocationState(initialResourceAllocationState());
     }
 
     getState(): SignerState {
@@ -173,13 +150,7 @@ class ProductAccountSignerManager {
 
         const connection = await this.manager.connect("host");
         if (!connection.ok) {
-            this.setState({
-                status: "disconnected",
-                accounts: [],
-                selectedAccount: null,
-                activeProvider: null,
-                error: connection.error,
-            });
+            this.transitionToDisconnected(connection.error);
             return connection;
         }
         const ownerName = connection.value[0]?.name ?? null;
@@ -189,14 +160,10 @@ class ProductAccountSignerManager {
             PRODUCT_ACCOUNT_DERIVATION_INDEX,
         );
         if (!productAccount.ok) {
+            // Update our state before tearing down the underlying so the constructor
+            // subscriber's guard suppresses a redundant disconnect propagation.
+            this.transitionToDisconnected(productAccount.error);
             this.manager.disconnect();
-            this.setState({
-                status: "disconnected",
-                accounts: [],
-                selectedAccount: null,
-                activeProvider: null,
-                error: productAccount.error,
-            });
             return err(productAccount.error);
         }
 
@@ -212,6 +179,9 @@ class ProductAccountSignerManager {
             activeProvider: "host",
             error: null,
         });
+        // Fire-and-forget: connect resolves as soon as the product account is in
+        // hand, so the UI can render. Allocations negotiate in the background; sign
+        // calls issued before completion may trigger an extra host prompt.
         void this.requestResourceAllocation();
         return ok(accounts);
     }
@@ -224,37 +194,31 @@ class ProductAccountSignerManager {
             error: null,
         });
 
+        const truApi = await getTruApi();
+        if (!truApi?.requestResourceAllocation) {
+            const nextState: ResourceAllocationState = {
+                status: "unavailable",
+                entries: requestedEntries,
+                error: "Host does not expose requestResourceAllocation",
+            };
+            this.setResourceAllocationState(nextState);
+            return nextState;
+        }
+
         try {
-            const truApi = await getTruApi();
-            if (!truApi?.requestResourceAllocation) {
+            const response = await truApi.requestResourceAllocation(
+                enumValue("v1", [...RESOURCE_ALLOCATION_REQUESTS]),
+            );
+            if (response.isErr()) {
                 const nextState: ResourceAllocationState = {
-                    status: "unavailable",
+                    status: "error",
                     entries: requestedEntries,
-                    error: "Host does not expose requestResourceAllocation",
+                    error: response.error.value.message,
                 };
                 this.setResourceAllocationState(nextState);
                 return nextState;
             }
-
-            const result = (await truApi.requestResourceAllocation(
-                enumValue("v1", [...RESOURCE_ALLOCATION_REQUESTS]),
-            )) as ResultAsync<
-                VersionedResponse<Array<{ tag: ResourceAllocationOutcome; value: undefined }>>,
-                VersionedResponse<unknown>
-            >;
-
-            const outcomes = await result.match(
-                payload => {
-                    if (payload.tag !== "v1") {
-                        throw new Error(`Unknown resource allocation response version: ${payload.tag}`);
-                    }
-                    return payload.value;
-                },
-                error => {
-                    throw new Error(formatHostError(error.value));
-                },
-            );
-
+            const outcomes = response.value.value;
             const nextState: ResourceAllocationState = {
                 status: "complete",
                 entries: RESOURCE_ALLOCATION_REQUESTS.map((request, index) => ({
@@ -265,11 +229,11 @@ class ProductAccountSignerManager {
             };
             this.setResourceAllocationState(nextState);
             return nextState;
-        } catch (error) {
+        } catch (cause) {
             const nextState: ResourceAllocationState = {
                 status: "error",
                 entries: requestedEntries,
-                error: formatHostError(error),
+                error: cause instanceof Error ? cause.message : String(cause),
             };
             this.setResourceAllocationState(nextState);
             return nextState;
@@ -298,12 +262,6 @@ class ProductAccountSignerManager {
         }
     }
 
-    disconnect(): void {
-        this.manager.disconnect();
-        this.setState(initialState());
-        this.setResourceAllocationState(initialResourceAllocationState());
-    }
-
     private setState(patch: Partial<SignerState>) {
         this.state = { ...this.state, ...patch };
         for (const subscriber of this.subscribers) {
@@ -324,23 +282,17 @@ export type { SignerAccount, SignerState };
 export const signerManager = new ProductAccountSignerManager();
 
 export function useSignerState(): SignerState {
-    const [state, setState] = useState<SignerState>(signerManager.getState());
-    useEffect(() => {
-        const unsubscribe = signerManager.subscribe(setState);
-        return unsubscribe;
-    }, []);
-    return state;
+    return useSyncExternalStore(
+        cb => signerManager.subscribe(cb),
+        () => signerManager.getState(),
+    );
 }
 
 export function useResourceAllocationState(): ResourceAllocationState {
-    const [state, setState] = useState<ResourceAllocationState>(
-        signerManager.getResourceAllocationState(),
+    return useSyncExternalStore(
+        cb => signerManager.subscribeResourceAllocation(cb),
+        () => signerManager.getResourceAllocationState(),
     );
-    useEffect(() => {
-        const unsubscribe = signerManager.subscribeResourceAllocation(setState);
-        return unsubscribe;
-    }, []);
-    return state;
 }
 
 export async function openExternalLink(url: string) {

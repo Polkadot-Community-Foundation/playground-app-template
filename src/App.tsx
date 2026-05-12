@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { truncateAddress } from "@parity/product-sdk-address";
 import { bytesToHex, utf8ToBytes } from "@parity/product-sdk-utils";
 import {
-    getProductAccountIdentifier,
     signerManager,
     useResourceAllocationState,
     useSignerState,
     openExternalLink,
     type ResourceAllocationKind,
     type ResourceAllocationOutcome,
+    type ResourceAllocationState,
     type SignerAccount,
 } from "./utils.ts";
 
@@ -57,7 +57,7 @@ export default function App() {
 function AccountPanel({ account }: { account: SignerAccount }) {
     return (
         <div className="panel">
-            <Field label="Product identifier" value={getProductAccountIdentifier()} />
+            <Field label="Product identifier" value={signerManager.productAccountIdentifier} />
             <Field label="SS58 address" value={account.address} />
             <Field label="EVM address (H160)" value={account.h160Address} />
             <ResourceAllocationPanel />
@@ -79,25 +79,23 @@ const OUTCOME_LABELS: Record<ResourceAllocationOutcome, string> = {
     NotAvailable: "Not available",
 };
 
+const STATUS_LABELS: Record<ResourceAllocationState["status"], string> = {
+    idle: "Waiting",
+    requesting: "Requesting",
+    complete: "Complete",
+    unavailable: "Unavailable",
+    error: "Failed",
+};
+
 function ResourceAllocationPanel() {
     const allocation = useResourceAllocationState();
-    const status =
-        allocation.status === "idle"
-            ? "Waiting"
-            : allocation.status === "requesting"
-              ? "Requesting"
-              : allocation.status === "complete"
-                ? "Complete"
-                : allocation.status === "unavailable"
-                  ? "Unavailable"
-                  : "Failed";
 
     return (
         <div className="resource-panel">
             <div className="resource-heading">
                 <span className="field-label">Host resources</span>
                 <span className={`resource-status resource-status-${allocation.status}`}>
-                    {status}
+                    {STATUS_LABELS[allocation.status]}
                 </span>
             </div>
             <div className="resource-list">
