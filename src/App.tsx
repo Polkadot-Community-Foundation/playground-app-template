@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
-import { truncateAddress } from "@polkadot-apps/address";
-import { bytesToHex, utf8ToBytes } from "@polkadot-apps/utils";
-import type { SignerAccount } from "@polkadot-apps/signer";
-import { signerManager, useSignerState, openExternalLink } from "./utils.ts";
+import { truncateAddress } from "@parity/product-sdk-address";
+import { bytesToHex, utf8ToBytes } from "@parity/product-sdk-utils";
+import {
+    signerManager,
+    useResourceAllocationState,
+    useSignerState,
+    openExternalLink,
+    type ResourceAllocationKind,
+    type ResourceAllocationOutcome,
+    type ResourceAllocationState,
+    type SignerAccount,
+} from "./utils.ts";
 
 const PLAYGROUND_URL = "https://playground.dot";
 
@@ -49,9 +57,58 @@ export default function App() {
 function AccountPanel({ account }: { account: SignerAccount }) {
     return (
         <div className="panel">
+            <Field label="Product identifier" value={signerManager.productAccountIdentifier} />
             <Field label="SS58 address" value={account.address} />
             <Field label="EVM address (H160)" value={account.h160Address} />
+            <ResourceAllocationPanel />
             <SignDemo />
+        </div>
+    );
+}
+
+const RESOURCE_LABELS: Record<ResourceAllocationKind, string> = {
+    StatementStoreAllowance: "Statement store",
+    BulletInAllowance: "Bulletin",
+    SmartContractAllowance: "Smart contracts",
+    AutoSigning: "Auto-signing",
+};
+
+const OUTCOME_LABELS: Record<ResourceAllocationOutcome, string> = {
+    Allocated: "Allocated",
+    Rejected: "Rejected",
+    NotAvailable: "Not available",
+};
+
+const STATUS_LABELS: Record<ResourceAllocationState["status"], string> = {
+    idle: "Waiting",
+    requesting: "Requesting",
+    complete: "Complete",
+    unavailable: "Unavailable",
+    error: "Failed",
+};
+
+function ResourceAllocationPanel() {
+    const allocation = useResourceAllocationState();
+
+    return (
+        <div className="resource-panel">
+            <div className="resource-heading">
+                <span className="field-label">Host resources</span>
+                <span className={`resource-status resource-status-${allocation.status}`}>
+                    {STATUS_LABELS[allocation.status]}
+                </span>
+            </div>
+            <div className="resource-list">
+                {allocation.entries.map(entry => (
+                    <div className="resource-row" key={entry.resource}>
+                        <span>{RESOURCE_LABELS[entry.resource]}</span>
+                        <span className={`resource-badge resource-badge-${entry.outcome ?? "pending"}`}>
+                            {entry.outcome ? OUTCOME_LABELS[entry.outcome] : "Pending"}
+                        </span>
+                    </div>
+                ))}
+            </div>
+            {allocation.error && <p className="error">{allocation.error}</p>}
         </div>
     );
 }
@@ -71,9 +128,9 @@ function ModItCard() {
             </p>
             <ul>
                 <li>Replace the sign demo with whatever your app actually does.</li>
-                <li>Tap deeper into the host env: <code>@polkadot-apps/bulletin</code> for off-chain storage,
-                    <code>@polkadot-apps/statement-store</code> for real-time P2P pub/sub,
-                    or <code>@dotdm/cdm</code> for smart contracts.</li>
+                <li>Tap deeper into the host env: <code>@parity/product-sdk-bulletin</code> for off-chain storage,
+                    <code>@parity/product-sdk-statement-store</code> for real-time P2P pub/sub,
+                    or <code>@parity/product-sdk-contracts</code> for smart contracts.</li>
                 <li>Run <code>dot deploy</code> to publish your fork to <code>&lt;name&gt;.dot</code> — no servers, no hosting bill.</li>
             </ul>
         </section>

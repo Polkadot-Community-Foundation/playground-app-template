@@ -59,6 +59,28 @@ header h1 { font-size: 20px; font-weight: 600; }
 
 .mono, .mod-card code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
+.resource-panel {
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px;
+}
+.resource-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.resource-status { color: var(--text2); font-size: 12px; }
+.resource-status-complete { color: #34d399; }
+.resource-status-error, .resource-status-unavailable { color: #f87171; }
+.resource-list { display: flex; flex-direction: column; gap: 8px; }
+.resource-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  color: var(--text); font-size: 13px;
+}
+.resource-badge {
+  flex-shrink: 0; border: 1px solid var(--border); border-radius: 999px;
+  padding: 3px 8px; color: var(--text2); font-size: 11px;
+}
+.resource-badge-Allocated { color: #34d399; border-color: rgba(52, 211, 153, 0.35); }
+.resource-badge-Rejected { color: #f87171; border-color: rgba(248, 113, 113, 0.35); }
+.resource-badge-NotAvailable { color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
+
 .sign-demo { display: flex; flex-direction: column; gap: 8px; }
 .text-input {
   background: var(--surface); color: var(--text); border: 1px solid var(--border);
