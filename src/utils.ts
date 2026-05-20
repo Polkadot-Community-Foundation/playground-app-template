@@ -50,9 +50,15 @@ function getProductAccountIdentifier(): string {
 
     const { host, hostname } = window.location;
     if (isLoopbackHost(hostname)) return host;
-    if (hostname.endsWith(".dot.li")) return hostname.slice(0, -".li".length);
+
+    // dotli exposes hosted products as `<name>.<gateway>` (always 3 hostname
+    // labels: `playground.dot.li`, `playground-sample.paseo.li`, ...). Map
+    // them back to the canonical `<name>.dot` identifier the host signs.
+    const labels = hostname.toLowerCase().split(".");
+    if (labels.length === 3) return `${labels[0]}.dot`;
+
     if (hostname.endsWith(".dot")) return hostname;
-    return host || DEFAULT_PRODUCT_ACCOUNT_DOT_NS;
+    return DEFAULT_PRODUCT_ACCOUNT_DOT_NS;
 }
 
 function initialState(): SignerState {
