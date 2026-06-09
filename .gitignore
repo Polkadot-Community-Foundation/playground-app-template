@@ -2,3 +2,15 @@ node_modules/
 dist/
 *.tsbuildinfo
 *.car
+
+# Local env files (never commit real secrets; keep .env.example tracked)
+.env*
+!.env.example
+
+# OS cruft
+.DS_Store
+
+# AI session / per-developer local state (the tracked .claude/commands/* stay)
+.claude/sessions/
+.claude/cache/
+.claude/settings.local.json
