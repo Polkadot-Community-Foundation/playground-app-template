@@ -60,7 +60,7 @@ env:
   # published the --playground registry entry to Paseo instead of Summit, so the
   # app never appeared in the Summit Apps grid.
   PLAYGROUND_CLI_REPO: Polkadot-Community-Foundation/playground-cli
-  PLAYGROUND_CLI_REF: 9bc441548c6915fe612d031b83684797f3e6c2a0
+  PLAYGROUND_CLI_REF: b41feccf9b42334a6d7366a72019896196d48a13
 
 jobs:
   deploy:
@@ -119,13 +119,7 @@ jobs:
       - name: Build playground CLI binary
         working-directory: .playground-cli
         run: |
-          # --no-frozen-lockfile: the pinned fork commit ships a stale
-          # pnpm-lock.yaml (its package.json was repointed to
-          # @polkadot-community-foundation/cdm-env@^2.1.0 without regenerating the
-          # lock), so --frozen-lockfile refuses. We only need the binary, not a
-          # reproducible lock, and cdm-env@2.1.0 is public on npm. Drop this back
-          # to --frozen-lockfile once the fork commits a regenerated lock.
-          pnpm install --no-frozen-lockfile
+          pnpm install --frozen-lockfile
           # Compile a self-contained binary (bundles deps incl. cdm-env w3s).
           bun build --compile src/index.ts --outfile "$RUNNER_TEMP/playground"
           "$RUNNER_TEMP/playground" --version
@@ -145,8 +139,8 @@ jobs:
           set -euo pipefail
           PUBLISH_FLAGS="--playground --moddable --tag $PLAYGROUND_TAG"
           if [ "$PUBLISH" = "no" ]; then
-            # isFullySpecified still needs a boolean playground flag -> --no-playground.
-            PUBLISH_FLAGS="--no-playground"
+            # host-only (no registry publish): --yes forces headless (b41fecc+).
+            PUBLISH_FLAGS="--yes"
           fi
           "$RUNNER_TEMP/playground" deploy \
             --env summit \
