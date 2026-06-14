@@ -12,6 +12,7 @@
       "Bash(git branch --show-current)",
       "Bash(git status --porcelain)",
       "Bash(git log -1*)",
+      "Bash(playground deploy*)",
       "Bash(dot deploy*)"
     ]
   }

@@ -28,12 +28,11 @@ Other packages worth knowing about for richer apps:
 - **Host API login only works inside Polkadot Desktop.** Don't propose extension/browser fallbacks — they're intentionally out-of-scope.
 - `src/utils.ts` intentionally calls `SignerManager.connect("host")` first, then `getProductAccount(productIdentifier, 0)`; the selected account is the app-scoped product account.
 - Product account identifiers must match the host's current app identifier. Localhost uses `window.location.host` (for example `localhost:5173`), `.dot.li` gateway URLs map to `.dot`, and `VITE_PRODUCT_ACCOUNT_ID` can override this.
-- Signed extrinsics (Bulletin uploads, contract calls, etc.) require PAS tokens. Faucets:
-  - Asset Hub: https://faucet.polkadot.io/
-  - Bulletin: https://paritytech.github.io/polkadot-bulletin-chain/authorizations?tab=faucet
+- Deploys target the **Summit** network (`playground deploy --env summit`). The Playground CLI defaults to a Paseo testnet, so the `--env summit` flag is required for every Summit deploy unless the operator has flipped the CLI's default env.
+- Signed extrinsics (Bulletin uploads, contract calls, etc.) need funds + a Bulletin storage allowance. On Summit there is **no public faucet**: the **phone signer** (Proof of Personhood) provisions and tops up the deploy account through the host, while a **pre-provisioned mnemonic** must be funded (SUM) and Bulletin-authorized by the network operator out of band.
 - Polkadot Desktop itself isn't installable from this repo — point users at the Polkadot Apps documentation if they don't have it.
 
 ## Slash commands
 
 - `/dev` — install deps if needed, then start the dev server in the background.
-- `/deploy <name>` — build and deploy to `<name>.dot` via the `dot` CLI (phone signer).
+- `/deploy <name>` — build and deploy to `<name>.dot` on Summit via the `playground` CLI (phone signer).

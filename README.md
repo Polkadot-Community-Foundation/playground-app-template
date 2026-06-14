@@ -47,12 +47,14 @@ src/
 
 ## Deploying
 
-A `/deploy <name>` slash command is wired up for Claude Code users — it runs `dot deploy` against `<name>.dot` using the phone signer. Standalone:
+A `/deploy <name>` slash command is wired up for Claude Code users — it runs `playground deploy` against `<name>.dot` on the Summit network using the phone signer. Standalone:
 
 ```bash
 npm run build
-dot deploy --no-build --buildDir dist --domain <name>.dot --signer phone --playground
+playground deploy --env summit --no-build --buildDir dist --domain <name>.dot --signer phone --playground
 ```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full walkthrough (forking, the Playground CLI, phone vs. mnemonic signing). Maintainers deploying the canonical `playground-template.dot` instance: see [DEPLOY_SUMMIT.md](DEPLOY_SUMMIT.md).
 
 ## Ideas for modding
 

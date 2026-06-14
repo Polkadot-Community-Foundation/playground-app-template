@@ -84,8 +84,12 @@ npm run build
 ## 4. Deploy to Bulletin and register your `.dot` name
 
 ```sh
-playground deploy --no-build --buildDir dist --domain <name> --signer phone --playground
+playground deploy --env summit --no-build --buildDir dist --domain <name> --signer phone --playground
 ```
+
+This deploys to the **Summit** network. The Playground CLI defaults to a Paseo
+testnet, so `--env summit` is required on every command below unless your CLI
+build already defaults to Summit.
 
 Pick any available name (`<name>` becomes `<name>.dot`; a trailing `.dot` is
 fine — the CLI strips it). Two constraints to know: if the name is already
@@ -96,7 +100,7 @@ Want your fork to be moddable by others? Add `--moddable` (requires
 `--playground` and a public GitHub `origin` — your fork):
 
 ```sh
-playground deploy --no-build --buildDir dist --domain <name> --signer phone --playground --moddable
+playground deploy --env summit --no-build --buildDir dist --domain <name> --signer phone --playground --moddable
 ```
 
 The CLI shows a **preflight summary** before submitting anything. Read it
@@ -137,7 +141,7 @@ If you have a pre-provisioned account (a mnemonic or secret URI) you can
 skip the phone flow entirely, including `playground login`:
 
 ```sh
-playground deploy --no-build --buildDir dist --domain <name> --playground --signer dev --suri "<your secret URI>"
+playground deploy --env summit --no-build --buildDir dist --domain <name> --playground --signer dev --suri "<your secret URI>"
 ```
 
 Everything (storage, DotNS, playground publish) is then signed by that
@@ -146,11 +150,12 @@ account, with no phone approvals. Two things to know:
 - **Always pass `--suri`.** Bare `--signer dev` without it falls back to a
   shared, publicly-known development mnemonic, so anyone could control what
   you deploy.
-- The account must be funded: PAS for fees and a Bulletin storage allowance.
-  Faucets:
-  - PAS for fees: <https://faucet.polkadot.io/>
-  - Bulletin storage allowance:
-    <https://paritytech.github.io/polkadot-bulletin-chain/authorizations?tab=faucet>
+- The account must be funded and storage-authorized. On Summit there is **no
+  public faucet** (unlike the Paseo testnets): the account needs SUM for fees
+  and a Bulletin storage allowance, both provisioned by the network operator
+  out of band. The phone-signer flow above avoids this — it provisions the
+  account through the host's Proof of Personhood. Use the mnemonic path only
+  with an account the operator has already funded + authorized.
 
 ## 5. Verify
 
@@ -184,7 +189,7 @@ CLI build for you.
 | `--moddable` rejected / preflight shows the upstream repo as the source | `--moddable` needs a public GitHub `origin` that is **your fork**; `git remote set-url origin <your fork URL>` |
 | Deploy pauses ~60s after the first phone approval | DotNS's mandatory commit-reveal wait (front-running protection), not a hang |
 | No QR code or notification during deploy | expected for `--signer phone`: open the Polkadot App yourself; pending approvals appear inside the app |
-| Deploy fails at the upload step with a `Payment` / allowance error | no Bulletin storage allowance; use the Bulletin faucet (see step 4's mnemonic notes), then re-run |
+| Deploy fails at the upload step with a `Payment` / allowance error | no Bulletin storage allowance. On the phone path, approve the storage top-up prompt; on the mnemonic path, the account needs an operator-provisioned Summit allowance (see step 4's mnemonic notes), then re-run |
 | App loads but shows no product account in a plain desktop browser | expected: Host API access flows through the host. Open it inside Polkadot Desktop/Mobile, or via its `.dot.li` URL |
 | `<name>.dot.li` returns a generic Polkadot page to curl/scripts | the gateway serves a client-side resolver shell; only a real browser renders your app |
 | Opened `<name>.dot` and saw the old version | hard-refresh (Cmd+Shift+R / Ctrl+Shift+R); the browser cached the previous deploy |
