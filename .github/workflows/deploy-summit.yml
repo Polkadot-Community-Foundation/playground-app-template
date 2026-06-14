@@ -56,8 +56,11 @@ env:
   # binaries that DON'T carry the Summit cdm-env — so we build the PCF fork from
   # source at a pinned commit. Bump REF as the fork advances; the only hard
   # requirement is that its cdm-env stays >= 2.1.0 (w3s address populated).
+  # Pinned to the env-aware-publish fix (PCF playground-cli #2): earlier commits
+  # published the --playground registry entry to Paseo instead of Summit, so the
+  # app never appeared in the Summit Apps grid.
   PLAYGROUND_CLI_REPO: Polkadot-Community-Foundation/playground-cli
-  PLAYGROUND_CLI_REF: 648bb7e94f5f0eadd9b0715e6e584caea2d7f159
+  PLAYGROUND_CLI_REF: 9bc441548c6915fe612d031b83684797f3e6c2a0
 
 jobs:
   deploy:
