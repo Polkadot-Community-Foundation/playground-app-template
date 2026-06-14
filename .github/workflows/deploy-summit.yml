@@ -116,7 +116,13 @@ jobs:
       - name: Build playground CLI binary
         working-directory: .playground-cli
         run: |
-          pnpm install --frozen-lockfile
+          # --no-frozen-lockfile: the pinned fork commit ships a stale
+          # pnpm-lock.yaml (its package.json was repointed to
+          # @polkadot-community-foundation/cdm-env@^2.1.0 without regenerating the
+          # lock), so --frozen-lockfile refuses. We only need the binary, not a
+          # reproducible lock, and cdm-env@2.1.0 is public on npm. Drop this back
+          # to --frozen-lockfile once the fork commits a regenerated lock.
+          pnpm install --no-frozen-lockfile
           # Compile a self-contained binary (bundles deps incl. cdm-env w3s).
           bun build --compile src/index.ts --outfile "$RUNNER_TEMP/playground"
           "$RUNNER_TEMP/playground" --version
