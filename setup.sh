@@ -27,8 +27,12 @@ SKILLS_DEST=".claude/skills"
 
 # --- 1. dependencies ---------------------------------------------------------
 if [ ! -d node_modules ]; then
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "    npm not found — install Node.js (>= 20) and re-run." >&2
+    exit 1
+  fi
   echo "==> Installing npm dependencies..."
-  npm install
+  npm install --no-audit --no-fund
 else
   echo "==> node_modules present; skipping npm install (delete it to reinstall)."
 fi
