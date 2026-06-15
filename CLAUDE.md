@@ -90,6 +90,9 @@ This template is **frontend-only** — there is no contract. If you add one:
 - Write it in **Rust** and compile to **PVM (PolkaVM)** for `pallet-revive` — this
   is the Polkadot Hub contract runtime. Do **not** target EVM/Solidity or legacy
   ink!/WASM.
+- The Rust toolchain is **pre-pinned** in `rust-toolchain.toml` at the repo root
+  (a known-good PVM nightly + `rust-src`), so `cargo`/`cdm` build your contract
+  reproducibly out of the box. Bump the date there as the toolchain moves on.
 - Manage contract dependencies with the **CDM (Contract Dependency Manager,
   [paritytech/contract-dependency-manager](https://github.com/paritytech/contract-dependency-manager))**
   — the `@parity/cdm-*` toolchain and a `cdm.json` manifest — and build with
