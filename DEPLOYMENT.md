@@ -5,8 +5,9 @@ Playground template: your own frontend on Bulletin Chain, served from your
 own `.dot` name, starting from nothing but a GitHub account, a terminal, and
 a phone.
 
-This template is **frontend-only** — there's no smart contract, so no Rust
-toolchain or contract build to set up. One tool does all the work:
+This template ships **frontend-only** by default — if you haven't added a smart
+contract, there's no Rust toolchain or contract build to set up, and one tool
+does all the work:
 
 - **[Playground CLI](https://github.com/paritytech/playground-cli)** (`playground`, short alias `pg`) builds the frontend,
   uploads it to Bulletin Chain, registers your `.dot` name, and (optionally)
@@ -15,6 +16,11 @@ toolchain or contract build to set up. One tool does all the work:
 
 Rough time: about 10 minutes end to end. There's no slow Rust build here —
 the wait is mostly the on-chain steps that pause for phone approval.
+
+> **Added a smart contract?** (See CLAUDE.md → *Smart contracts* for how to
+> scaffold one.) There are extra build/deploy steps and one thing that's easy to
+> miss — making sure `cdm.json`'s `registry` address matches your target
+> network. See [Deploying a contract](#deploying-a-contract) below.
 
 ## 0. Prerequisites
 
@@ -185,6 +191,48 @@ account, with no phone approvals. Two things to know:
   is approved on your Polkadot Mobile — Desktop/Web relay it to the phone).
 - If you deployed with `--playground`, open the playground's **Apps** tab
   (inside Polkadot Desktop / Mobile). Your card should appear, newest first.
+
+## Deploying a contract
+
+Only relevant if you added a smart contract (see CLAUDE.md → *Smart contracts*
+for scaffolding it from CDM). A frontend-only app skips all of this — keep using
+the steps above (or pass `--no-contracts` to be explicit).
+
+**Extra prerequisites:** a Rust toolchain on your laptop (the version is
+pre-pinned in `rust-toolchain.toml`, so `cargo`/`cdm` pick it up automatically)
+and the CDM tooling. This is not a browser-only flow.
+
+> ### ⚠️ Make `cdm.json`'s `registry` match your target network
+>
+> `cdm.json` has a top-level **`registry`** field — the address of the on-chain
+> **CDM contract registry** where contract packages are published and resolved.
+> **It is network-specific.** The scaffolding ships with the **Polkadot testnet
+> (Paseo)** registry:
+>
+> ```json
+> "registry": "0xf62c2ece29cd8df2e10040ecfa5a894a5c5d9cb0"
+> ```
+>
+> If you deploy to a **different network**, you must set `registry` to that
+> network's CDM registry address first — otherwise the contract deploy/resolve
+> step targets the wrong chain and fails. If you only ever deploy to Paseo, the
+> shipped value is already correct.
+
+**Build and deploy.** `playground deploy` runs a **contract deploy/install
+pre-step automatically** — pass `--contracts` (or answer the prompt):
+
+```sh
+npm run build   # build the frontend into dist/ first, as in step 3
+playground deploy --no-build --buildDir dist --domain <name> --signer phone --playground --contracts
+```
+
+That compiles the contract (PVM/PolkaVM for `pallet-revive`), deploys it on-chain,
+and **writes the real contract `address`, `abi`, and `metadataCid` back into
+`cdm.json`** — so don't hand-fill those; the deploy fills them. The contract is
+signed for on the phone like the other steps, and a fresh account may need a
+one-time account-mapping approval. Let the CLI own on-chain deployment; never
+hand-roll `pallet-revive` calls. To build the contract on its own, use
+`cdm build`.
 
 ## Redeploying
 

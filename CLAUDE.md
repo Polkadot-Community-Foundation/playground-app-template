@@ -85,27 +85,61 @@ the host model in more depth.)
 
 ## Smart contracts
 
-This template is **frontend-only** — there is no contract. If you add one:
+This template ships **frontend-only** so contract-free apps stay lean — but it's
+contract-**ready**, and adding one is a supported, first-class path. The only
+piece committed up front is `rust-toolchain.toml` at the repo root (a known-good
+PVM nightly + `rust-src`), so `cargo`/`cdm` build reproducibly the moment you add
+a crate. Bump the date there as the toolchain moves on.
 
-- Write it in **Rust** and compile to **PVM (PolkaVM)** for `pallet-revive` — this
-  is the Polkadot Hub contract runtime. Do **not** target EVM/Solidity or legacy
-  ink!/WASM.
-- The Rust toolchain is **pre-pinned** in `rust-toolchain.toml` at the repo root
-  (a known-good PVM nightly + `rust-src`), so `cargo`/`cdm` build your contract
-  reproducibly out of the box. Bump the date there as the toolchain moves on.
-- Manage contract dependencies with the **CDM (Contract Dependency Manager,
-  [paritytech/contract-dependency-manager](https://github.com/paritytech/contract-dependency-manager))**
-  — the `@parity/cdm-*` toolchain and a `cdm.json` manifest — and build with
-  **cargo**. A Rust toolchain (and a laptop) is required; this is not a
-  browser-only flow. See the CDM repo for the manifest schema and commands.
-- `playground deploy` (the `playground` CLI —
-  [paritytech/playground-cli](https://github.com/paritytech/playground-cli))
-  runs a **contract deploy/install pre-step** automatically
-  (pass `--no-contracts` to skip it). Let the CLI handle on-chain contract
-  deployment; don't hand-roll `pallet-revive` calls.
-- The `product-sdk-contracts` skill in `.claude/skills/` covers calling contracts
-  from the frontend via `@parity/product-sdk-contracts` (still through the host —
-  see the no-direct-RPC convention above).
+### Want a contract? Scaffold it from CDM (don't hand-write or copy a stale snapshot)
+
+We deliberately do **not** commit a contract crate into this template — the
+contract toolchain (macro API, SDK crates, `cdm.json` shape) moves fast, so a
+committed copy goes stale. Instead, **fetch the canonical scaffolding fresh from
+CDM** when a contract is actually wanted — the same "always current, never
+committed" approach `setup.sh` uses for the `product-sdk` skills.
+
+CDM ships maintained project templates under
+[`paritytech/contract-dependency-manager`](https://github.com/paritytech/contract-dependency-manager)
+in `src/templates/` (e.g. `shared-counter` — its single `counter` crate is the
+minimal "one storage slot, `increment` + `get_count`" example). To add a contract:
+
+1. Pull the current scaffold (shallow clone, then copy the pieces you need):
+   ```sh
+   git clone --depth 1 https://github.com/paritytech/contract-dependency-manager /tmp/cdm-ref
+   # copy a workspace Cargo.toml (members = ["contracts/*"]), the chosen contract
+   # crate into contracts/<name>/, and the template's cdm.json
+   ```
+   Prefer CDM's own scaffolding command if the installed `cdm`/`playground` CLI
+   exposes one — check `cdm --help` / `playground --help` first; it pulls the
+   same `src/templates/` and is the intended path.
+2. **Rename the package** from `@example/<name>` to `@<your-cdm-handle>/<name>`
+   in the crate's `Cargo.toml` (`[package.metadata.cdm] package = ...`) and in
+   `cdm.json`. The handle is claimed first-come in the on-chain CDM registry, so
+   ask the user for theirs and confirm they're signed in (`playground login`).
+3. Keep the existing root `rust-toolchain.toml`.
+
+### Non-negotiables for contracts
+
+- **Rust → PVM (PolkaVM) for `pallet-revive`** — the Polkadot Hub contract
+  runtime. Never target EVM/Solidity or legacy ink!/WASM.
+- **`cdm.json` is the flat `@parity/cdm-*` (3.1.4+) format:** top-level `registry`
+  string + flat `dependencies` (library→version) and `contracts` (library→contract)
+  maps. A `targets`/`targetHash` field means it's the **old** format — regenerate
+  it. cdm.json no longer stores chain URLs (those come from the CLI/preset). It's
+  normally written/updated by `cdm i` / `playground contract deploy`, so don't
+  hand-maintain its addresses/CIDs.
+- Build with **`cdm build`** (a Rust toolchain + a laptop are required; not a
+  browser-only flow). Manage contract deps with CDM, not by hand-editing.
+- **Deploy via `playground deploy`** (the `playground` CLI —
+  [paritytech/playground-cli](https://github.com/paritytech/playground-cli)),
+  which runs a **contract deploy/install pre-step** automatically
+  (`--contracts` / `--no-contracts`). Let the CLI do on-chain deployment; never
+  hand-roll `pallet-revive` calls.
+- **Calling a contract from the frontend** still goes through the host (no direct
+  RPC). Add `@parity/product-sdk-contracts` (plus `-chain-client` and
+  `-descriptors`) and follow the `product-sdk-contracts` skill in
+  `.claude/skills/`.
 
 ## Publishing & the App Detail Page
 
