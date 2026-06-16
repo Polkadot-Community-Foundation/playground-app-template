@@ -84,19 +84,20 @@ npm run build
 ## 4. Deploy to Bulletin and register your `.dot` name
 
 ```sh
-playground deploy --no-build --buildDir dist --domain <name> --signer phone --playground
+playground deploy --no-build --buildDir dist --domain playground-template --signer phone --playground
 ```
 
-Pick any available name (`<name>` becomes `<name>.dot`; a trailing `.dot` is
-fine — the CLI strips it). Two constraints to know: if the name is already
-taken by someone else, pick another; and very short names currently require
-personhood verification, so prefer names of 9+ characters.
+This deploys to `playground-template.dot` (a trailing `.dot` is fine — the CLI
+strips it). One constraint to know: if the name is already taken by someone
+else, the deploy fails and you'll need a different name; `playground-template`
+is 19 characters, comfortably above the 9+ length that avoids the personhood
+requirement for very short names.
 
 Want your fork to be moddable by others? Add `--moddable` (requires
 `--playground` and a public GitHub `origin` — your fork):
 
 ```sh
-playground deploy --no-build --buildDir dist --domain <name> --signer phone --playground --moddable
+playground deploy --no-build --buildDir dist --domain playground-template --signer phone --playground --moddable
 ```
 
 The CLI shows a **preflight summary** before submitting anything. Read it
@@ -127,9 +128,9 @@ Between the first two approvals there is a deliberate ~60-second pause
 2. registers your **`.dot` domain** via DotNS and points it at the upload,
 3. publishes the app to the **playground registry**, which puts it in the
    playground's Apps grid,
-4. prints the result: your live URL (`https://<name>.dot.li`, or
-   `<name>.dot` inside a Polkadot host — Mobile, Desktop, or Web) plus the
-   app, IPFS, and metadata CIDs.
+4. prints the result: your live URL (`https://playground-template.dot.li`, or
+   `playground-template.dot` inside a Polkadot host — Mobile, Desktop, or Web)
+   plus the app, IPFS, and metadata CIDs.
 
 ### What shows on your app's listing
 
@@ -155,7 +156,7 @@ If you have a pre-provisioned account (a mnemonic or secret URI) you can
 skip the phone flow entirely, including `playground login`:
 
 ```sh
-playground deploy --no-build --buildDir dist --domain <name> --playground --signer dev --suri "<your secret URI>"
+playground deploy --no-build --buildDir dist --domain playground-template --playground --signer dev --suri "<your secret URI>"
 ```
 
 Everything (storage, DotNS, playground publish) is then signed by that
@@ -172,11 +173,11 @@ account, with no phone approvals. Two things to know:
 
 ## 5. Verify
 
-- Open `https://<name>.dot.li` in a **plain browser**: your app, served from
-  Bulletin. The page renders, but Host API login and the product-account
-  panel only light up inside a Polkadot host (next bullet) — a plain tab has
-  no host to talk to.
-- Open `<name>.dot` inside a **Polkadot host** (Mobile, Desktop, or Web). On
+- Open `https://playground-template.dot.li` in a **plain browser**: your app,
+  served from Bulletin. The page renders, but Host API login and the
+  product-account panel only light up inside a Polkadot host (next bullet) — a
+  plain tab has no host to talk to.
+- Open `playground-template.dot` inside a **Polkadot host** (Mobile, Desktop, or Web). On
   Desktop/Web **hard-refresh** (Cmd+Shift+R / Ctrl+Shift+R) — the browser may
   serve a cached copy of a previous deploy. You should see the template
   connect to the Host API and surface the app-scoped product account's SS58 +
