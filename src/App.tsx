@@ -11,6 +11,7 @@ import {
     type ResourceAllocationState,
     type SignerAccount,
 } from "./utils.ts";
+import { useChainBlock } from "./chain.ts";
 
 const PLAYGROUND_URL = "https://playground.dot";
 
@@ -60,6 +61,7 @@ function AccountPanel({ account }: { account: SignerAccount }) {
             <Field label="Product identifier" value={signerManager.productAccountIdentifier} />
             <Field label="SS58 address" value={account.address} />
             <Field label="EVM address (H160)" value={account.h160Address} />
+            <ChainBlockPanel />
             <ResourceAllocationPanel />
             <SignDemo />
         </div>
@@ -109,6 +111,27 @@ function ResourceAllocationPanel() {
                 ))}
             </div>
             {allocation.error && <p className="error">{allocation.error}</p>}
+        </div>
+    );
+}
+
+function ChainBlockPanel() {
+    const { status, block, error } = useChainBlock();
+    const display =
+        status === "live" && block !== null
+            ? `#${block.toLocaleString()}`
+            : status === "error"
+              ? "unavailable"
+              : "connecting…";
+
+    return (
+        <div className="field">
+            <span className="field-label">Summit Asset Hub block</span>
+            <div className="chain-block">
+                <span className={`chain-dot chain-dot-${status}`} aria-hidden />
+                <span className="mono">{display}</span>
+            </div>
+            {error && <p className="error">{error}</p>}
         </div>
     );
 }

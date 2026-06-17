@@ -139,14 +139,18 @@ jobs:
           # the official seed app from headless CI (no login session), so opt
           # out explicitly; the gate stays enforced for interactive users.
           PLAYGROUND_SKIP_IDENTITY_GATE: "1"
-          # workflow_dispatch lets an operator turn publish off; push always publishes.
-          PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == false && 'no' || 'yes' }}
+          # The Apps-grid publish (--playground -> registry.publishDev) reverts
+          # on-chain since the registry identity-gate / v17 rollout, so default to
+          # HOST-ONLY content deploy. An operator can force the grid publish via
+          # workflow_dispatch (publish=true) once the registry publish path is
+          # restored. The app stays listed from its prior publish.
+          PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true && 'yes' || 'no' }}
         run: |
           set -euo pipefail
-          PUBLISH_FLAGS="--playground --moddable --tag $PLAYGROUND_TAG"
-          if [ "$PUBLISH" = "no" ]; then
-            # host-only (no registry publish): --yes forces headless (b41fecc+).
-            PUBLISH_FLAGS="--yes"
+          # Default host-only (--yes forces headless, b41fecc+).
+          PUBLISH_FLAGS="--yes"
+          if [ "$PUBLISH" = "yes" ]; then
+            PUBLISH_FLAGS="--playground --moddable --tag $PLAYGROUND_TAG"
           fi
           "$RUNNER_TEMP/playground" deploy \
             --env summit \
