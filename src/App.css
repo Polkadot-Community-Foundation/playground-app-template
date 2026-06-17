@@ -81,6 +81,16 @@ header h1 { font-size: 20px; font-weight: 600; }
 .resource-badge-Rejected { color: #f87171; border-color: rgba(248, 113, 113, 0.35); }
 .resource-badge-NotAvailable { color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
 
+.chain-block {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; color: var(--text); font-size: 13px;
+}
+.chain-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; background: var(--text2); }
+.chain-dot-live { background: #34d399; }
+.chain-dot-error { background: #f87171; }
+.chain-dot-connecting { background: #fbbf24; }
+
 .sign-demo { display: flex; flex-direction: column; gap: 8px; }
 .text-input {
   background: var(--surface); color: var(--text); border: 1px solid var(--border);
