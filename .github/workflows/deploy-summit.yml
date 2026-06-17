@@ -56,11 +56,12 @@ env:
   # binaries that DON'T carry the Summit cdm-env — so we build the PCF fork from
   # source at a pinned commit. Bump REF as the fork advances; the only hard
   # requirement is that its cdm-env stays >= 2.1.0 (w3s address populated).
-  # Pinned to the env-aware-publish fix (PCF playground-cli #2): earlier commits
-  # published the --playground registry entry to Paseo instead of Summit, so the
-  # app never appeared in the Summit Apps grid.
+  # Pinned to the latest synced fork main (PCF playground-cli #8): carries the
+  # env-aware-publish fix (#2), upstream's native Summit descriptors, and the
+  # operator opt-out for the new builder-identity gate (see below). Earlier
+  # commits published the --playground registry entry to Paseo instead of Summit.
   PLAYGROUND_CLI_REPO: Polkadot-Community-Foundation/playground-cli
-  PLAYGROUND_CLI_REF: 438782df8b6d5d9b19baf8445c46d6ba655cf4a3
+  PLAYGROUND_CLI_REF: 5b5559b2b61140e7ad99abb643bee7303f402bcb
 
 jobs:
   deploy:
@@ -133,6 +134,11 @@ jobs:
       - name: Deploy to Summit
         env:
           MNEMONIC: ${{ secrets.MNEMONIC }}
+          # The synced playground-cli gates deploy behind a "revealed builder
+          # identity" (a competition mechanic). This is the operator deploying
+          # the official seed app from headless CI (no login session), so opt
+          # out explicitly; the gate stays enforced for interactive users.
+          PLAYGROUND_SKIP_IDENTITY_GATE: "1"
           # workflow_dispatch lets an operator turn publish off; push always publishes.
           PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == false && 'no' || 'yes' }}
         run: |
