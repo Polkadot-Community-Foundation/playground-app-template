@@ -4,9 +4,9 @@
 
 # Polkadot Playground
 
-Minimal React + Vite + TypeScript template wired to the Host API for product-account access from Polkadot Desktop. A starting point for building Polkadot dapps.
+Minimal React + Vite + TypeScript template wired to the Host API for product-account access from a Polkadot host (Mobile, Desktop, or Web). A starting point for building Polkadot dapps.
 
-A live deployment runs at [**playground.dot.li**](https://playground.dot.li) — open it inside Polkadot Desktop to see the template connect to the Host API, surface the app-scoped product account's SS58 + EVM (H160) addresses, and sign a message end-to-end.
+A live deployment runs at [**playground.dot.li**](https://playground.dot.li) — open it inside a Polkadot host (Mobile, Desktop, or Web) to see the template connect to the Host API, surface the app-scoped product account's SS58 + EVM (H160) addresses, and sign a message end-to-end. Signing is approved on Polkadot Mobile — Desktop and Web relay the request to your paired phone.
 
 ## Mod it
 
@@ -22,17 +22,24 @@ When you're ready, deploy your fork to your own `<name>.dot` domain (see below) 
 
 - **React 19** + **Vite** + **TypeScript**
 - **`@parity/product-sdk-signer`** — Host signer management and app-scoped product-account signing
-- **`@parity/product-sdk-host`** — TruAPI helpers for Polkadot Desktop
-- **`@novasamatech/product-sdk`** — TruAPI runtime used underneath the Product SDK packages
+- **`@parity/product-sdk-host`** — TruAPI helpers for the Polkadot host (Mobile, Desktop, or Web)
+- **`@novasamatech/host-api`** (+ `@novasamatech/host-api-wrapper`) — TruAPI runtime used underneath the Product SDK packages
 
 ## Running
 
 ```bash
-npm install
+./setup.sh    # installs deps + fetches the @parity/product-sdk skills
 npm run dev
 ```
 
-Runs on `http://localhost:5173`. Must be opened inside **Polkadot Desktop** for Host API login to work.
+`setup.sh` installs `node_modules/` and pulls the `@parity/product-sdk` skills
+into `.claude/skills/` so AI coding assistants (Claude Code, Cursor, Windsurf,
+Copilot, Gemini) have the Polkadot SDK guidance on hand. The skills are fetched
+from [paritytech/product-sdk](https://github.com/paritytech/product-sdk), not
+committed here, so they stay current — re-run `./setup.sh --refresh` to update
+them. (Plain `npm install` also works if you don't want the skills.)
+
+Runs on `http://localhost:5173`. Must be opened inside a **Polkadot host** (Mobile, Desktop, or Web) for Host API login to work; signing is approved on Polkadot Mobile.
 
 Product-account signing is scoped to the host's current app identifier. Local dev uses the current loopback host, e.g. `localhost:5173`; `.dot.li` gateway URLs are mapped back to their `.dot` product id. Set `VITE_PRODUCT_ACCOUNT_ID` when you need an explicit override.
 
@@ -47,7 +54,7 @@ src/
 
 ## Deploying
 
-A `/deploy <name>` slash command is wired up for Claude Code users — it runs `playground deploy` against `<name>.dot` on the Summit network using the phone signer. Standalone:
+A `/deploy <name>` slash command is wired up for Claude Code users — it runs `playground deploy` (the [Playground CLI](https://github.com/paritytech/playground-cli)) against `<name>.dot` on the Summit network using the phone signer. Standalone:
 
 ```bash
 npm run build
@@ -79,7 +86,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full walkthrough (forking, the Playgr
 - Add timestamps
 - Add data export as JSON
 
-### Advanced — smart contracts (requires CDM/Rust, laptop required)
+### Advanced — smart contracts (requires [CDM](https://github.com/paritytech/contract-dependency-manager)/Rust, laptop required)
 
 - Enforce a character limit at contract level
 - Add item expiry after a set number of blocks

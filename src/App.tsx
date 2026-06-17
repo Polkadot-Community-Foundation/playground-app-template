@@ -15,7 +15,7 @@ import {
 const PLAYGROUND_URL = "https://playground.dot";
 
 export default function App() {
-    const { status, selectedAccount, error } = useSignerState();
+    const { status, selectedAccount } = useSignerState();
 
     useEffect(() => {
         signerManager.connect().then(result => {
@@ -45,7 +45,7 @@ export default function App() {
                     <AccountPanel account={selectedAccount} />
                 ) : (
                     <p className="hint">
-                        {error?.message ?? <>Open this app in <strong>Polkadot Desktop</strong> to access your accounts via the Host API.</>}
+                        You need to log into Polkadot first — either view this page within a <strong>Polkadot host</strong> (Desktop or browser), or log in in the preview on RevX.
                     </p>
                 )}
                 <ModItCard />
@@ -68,7 +68,7 @@ function AccountPanel({ account }: { account: SignerAccount }) {
 
 const RESOURCE_LABELS: Record<ResourceAllocationKind, string> = {
     StatementStoreAllowance: "Statement store",
-    BulletInAllowance: "Bulletin",
+    BulletinAllowance: "Bulletin",
     SmartContractAllowance: "Smart contracts",
     AutoSigning: "Auto-signing",
 };
@@ -131,7 +131,7 @@ function ModItCard() {
                 <li>Tap deeper into the host env: <code>@parity/product-sdk-bulletin</code> for off-chain storage,
                     <code>@parity/product-sdk-statement-store</code> for real-time P2P pub/sub,
                     or <code>@parity/product-sdk-contracts</code> for smart contracts.</li>
-                <li>Run <code>dot deploy</code> to publish your fork to <code>&lt;name&gt;.dot</code> — no servers, no hosting bill.</li>
+                <li>Run <code>playground deploy</code> to publish your fork to <code>&lt;name&gt;.dot</code> — no servers, no hosting bill.</li>
             </ul>
         </section>
     );

@@ -18,7 +18,7 @@ const PRODUCT_ACCOUNT_DERIVATION_INDEX = 0;
 
 const RESOURCE_ALLOCATION_REQUESTS = [
     { tag: "StatementStoreAllowance", value: undefined },
-    { tag: "BulletInAllowance", value: undefined },
+    { tag: "BulletinAllowance", value: undefined },
     { tag: "SmartContractAllowance", value: PRODUCT_ACCOUNT_DERIVATION_INDEX },
     { tag: "AutoSigning", value: undefined },
 ] as const satisfies ReadonlyArray<CodecType<typeof AllocatableResource>>;
@@ -312,7 +312,7 @@ export async function openExternalLink(url: string) {
         return;
     }
     try {
-        const result = await truApi.navigateTo(url);
+        const result = await truApi.navigateTo(enumValue("v1", url));
         if (result.isErr()) window.open(url, "_blank");
     } catch {
         window.open(url, "_blank");
