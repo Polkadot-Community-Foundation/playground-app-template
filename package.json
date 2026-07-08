@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
     "preview": "vite preview",
-    "publish:summit": "playground deploy --env summit --no-build --buildDir dist --domain playground-template --signer dev --suri \"$MNEMONIC\" --no-contracts --playground --moddable --tag utility"
+    "publish:summit": "playground deploy --env paseo-next --no-build --buildDir dist --domain playground-template --signer dev --suri \"$MNEMONIC\" --no-contracts --playground --moddable --tag utility"
   },
   "dependencies": {
     "@novasamatech/host-api": "0.8.10",
