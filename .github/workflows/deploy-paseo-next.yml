@@ -34,7 +34,7 @@ on:
       - "package-lock.json"
       - "vite.config.ts"
       - "tsconfig*.json"
-      - ".github/workflows/deploy-summit.yml"
+      - ".github/workflows/deploy-paseo-next.yml"
 
 concurrency:
   # One signer (5Fk8) signs serially on-chain — never run two deploys at once.
@@ -50,7 +50,7 @@ env:
   # Tag the registry card filters on (one of playground-cli's PLAYGROUND_TAGS:
   # social|chat|defi|utility|gaming|marketplace|irl). A developer starter = utility.
   PLAYGROUND_TAG: utility
-  # playground-cli carries the `--env summit` wiring AND resolves the @w3s CDM
+  # playground-cli carries the `--env paseo-next` wiring AND resolves the @w3s CDM
   # meta-registry (0xa5747e60…0141) via @polkadot-community-foundation/cdm-env.
   # It is a PRIVATE package (not on npm) distributed as paritytech release
   # binaries that DON'T carry the Summit cdm-env — so we build the PCF fork from
@@ -61,7 +61,7 @@ env:
   # operator opt-out for the new builder-identity gate (see below). Earlier
   # commits published the --playground registry entry to Paseo instead of Summit.
   PLAYGROUND_CLI_REPO: Polkadot-Community-Foundation/playground-cli
-  PLAYGROUND_CLI_REF: 5b5559b2b61140e7ad99abb643bee7303f402bcb
+  PLAYGROUND_CLI_REF: 8853ac78e76b3f96f879c4f1057f0d8ce136cbd3
 
 jobs:
   deploy:
@@ -153,7 +153,7 @@ jobs:
             PUBLISH_FLAGS="--playground --moddable --tag $PLAYGROUND_TAG"
           fi
           "$RUNNER_TEMP/playground" deploy \
-            --env summit \
+            --env paseo-next \
             --signer dev --suri "$MNEMONIC" \
             --domain "$DOMAIN" \
             --buildDir dist --no-build \
