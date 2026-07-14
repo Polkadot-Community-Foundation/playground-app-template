@@ -153,7 +153,7 @@ jobs:
             PUBLISH_FLAGS="--playground --moddable --tag $PLAYGROUND_TAG"
           fi
           "$RUNNER_TEMP/playground" deploy \
-            --env paseo-next \
+            --env devnet \
             --signer dev --suri "$MNEMONIC" \
             --domain "$DOMAIN" \
             --buildDir dist --no-build \
