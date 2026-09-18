@@ -53,7 +53,7 @@ function rawErrorPayload(error: unknown): unknown {
 const RESOURCE_ALLOCATION_REQUESTS = [
     { tag: "StatementStoreAllowance", value: undefined },
     { tag: "BulletinAllowance", value: undefined },
-    { tag: "SmartContractAllowance", value: PRODUCT_ACCOUNT_DERIVATION_INDEX },
+    { tag: "SmartContractAllowance", value: { tag: "Index", value: PRODUCT_ACCOUNT_DERIVATION_INDEX } },
     { tag: "AutoSigning", value: undefined },
 ] as const satisfies ReadonlyArray<AllocatableResource>;
 

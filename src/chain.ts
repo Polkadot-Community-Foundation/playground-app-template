@@ -3,7 +3,7 @@ import { createChainClient } from "@parity/product-sdk-chain-client";
 import { isChainSupported } from "@parity/product-sdk-host";
 import { ss58ToH160 } from "@parity/product-sdk-address";
 // PCF devnet = public Paseo Asset Hub (para 1000); the host routes by the descriptor genesis.
-import { devnet_asset_hub } from "@polkadot-community-foundation/product-sdk-descriptors/devnet-asset-hub";
+import { devnet_asset_hub } from "@parity/product-sdk-descriptors/devnet-asset-hub";
 
 // How long to wait for the first block before giving up. The host relays chain
 // reads, so a chain that's enabled but not serving blocks would otherwise hang
