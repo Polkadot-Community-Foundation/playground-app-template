@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { createChainClient } from "@parity/product-sdk-chain-client";
-import { summit_asset_hub } from "@parity/product-sdk-descriptors/summit-asset-hub";
+// DEVNET REPOINT (uncommitted): devnet is standard Paseo Asset Hub (para 1000);
+// the host routes by the descriptor's genesis, so select paseo_asset_hub here.
+import { devnet_asset_hub } from "@polkadot-community-foundation/product-sdk-descriptors/devnet-asset-hub";
 
 // Demo chain read: subscribe to Summit Asset Hub's current block number through
 // the sanctioned chain-client (host-routed — never a direct RPC endpoint). The
 // network is hardcoded to Summit: the descriptor's genesis hash is what selects
 // the chain (there are no endpoints/URLs to configure), and importing only
-// summit_asset_hub keeps the build to a single metadata chunk.
+// devnet_asset_hub keeps the build to a single metadata chunk.
 export interface ChainBlockState {
     status: "connecting" | "live" | "error";
     block: number | null;
@@ -34,7 +36,7 @@ export function useChainBlock(): ChainBlockState {
             });
         };
 
-        createChainClient({ chains: { assetHub: summit_asset_hub } })
+        createChainClient({ chains: { assetHub: devnet_asset_hub } })
             .then(chainClient => {
                 if (cancelled) {
                     chainClient.destroy();
