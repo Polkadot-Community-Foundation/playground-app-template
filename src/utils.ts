@@ -1,8 +1,18 @@
 import { useSyncExternalStore } from "react";
-import { enumValue, getTruApi } from "@parity/product-sdk-host";
-import { AllocatableResource, AllocationOutcome, type CodecType } from "@novasamatech/host-api";
+import {
+    getAccountsProvider,
+    HostUnavailableError,
+    navigateTo,
+    requestResourceAllocation,
+    type AllocatableResource,
+    type AllocationOutcome,
+    type HostError,
+} from "@parity/product-sdk-host";
+import { isSigningRejection } from "@parity/product-sdk-tx";
+import { configure, createLogger } from "@parity/product-sdk-logger";
 import {
     AccountNotFoundError,
+    HostProvider,
     SignerManager,
     SigningFailedError,
     err,
@@ -16,15 +26,61 @@ import {
 const DEFAULT_PRODUCT_ACCOUNT_DOT_NS = "playground.dot";
 const PRODUCT_ACCOUNT_DERIVATION_INDEX = 0;
 
+// Scoped diagnostic logging — a pattern worth keeping in a template. Only this
+// namespace drops to "debug"; every other product-sdk logger stays at "warn",
+// so you get detail where you want it without global noise (tune the namespace
+// / level below to taste). Here it captures the raw truapi payload for each
+// resource-allocation outcome (success, phone rejection, Desktop dialog cancel)
+// — handy for debugging your own flows and for reporting host gaps, e.g. a
+// Desktop cancel currently arriving as an indistinguishable Unknown{reason}.
+const allowanceLog = createLogger("playground:allowance");
+// Dev only: raise this namespace to "debug" so info/debug entries show while
+// developing. In production it stays at the "warn" default, so end users' of
+// apps built from this template don't get debug logs in their console.
+if (import.meta.env.DEV) {
+    configure({ level: "debug", namespaces: ["playground:allowance"] });
+}
+
+// The structured truapi error payload rides on HostCallFailedError as `payload`
+// ({ tag, value?: { reason } }); pull it out for logging without depending on
+// the class (avoids narrowing gymnastics).
+function rawErrorPayload(error: unknown): unknown {
+    return error && typeof error === "object" && "payload" in error
+        ? (error as { payload: unknown }).payload
+        : undefined;
+}
+
 const RESOURCE_ALLOCATION_REQUESTS = [
     { tag: "StatementStoreAllowance", value: undefined },
     { tag: "BulletinAllowance", value: undefined },
     { tag: "SmartContractAllowance", value: PRODUCT_ACCOUNT_DERIVATION_INDEX },
     { tag: "AutoSigning", value: undefined },
-] as const satisfies ReadonlyArray<CodecType<typeof AllocatableResource>>;
+] as const satisfies ReadonlyArray<AllocatableResource>;
 
-export type ResourceAllocationKind = CodecType<typeof AllocatableResource>["tag"];
-export type ResourceAllocationOutcome = CodecType<typeof AllocationOutcome>["tag"];
+export type ResourceAllocationKind = AllocatableResource["tag"];
+export type ResourceAllocationOutcome = AllocationOutcome;
+
+// Classify a failed allocation. isSigningRejection (product-sdk-tx, the same
+// helper playground-app uses) keys off the error message — "cancelled",
+// "rejected", "denied", "user refused" — so we surface a user decline distinctly
+// from a genuine failure instead of showing a bare "failed".
+//
+// Caveat: truapi's ResourceAllocationError is a single catch-all variant
+// ({ tag: "Unknown", value: { reason } }), so this only lands as "rejected" when
+// the host's reason string carries one of those keywords. A reason like
+// "Unknown error occurred" won't match and falls through to "error".
+function classifyResourceAllocationError(error: HostError): {
+    status: "unavailable" | "rejected" | "error";
+    message: string;
+} {
+    if (error instanceof HostUnavailableError) {
+        return { status: "unavailable", message: "Host unavailable — open this app inside a Polkadot host." };
+    }
+    if (isSigningRejection(error)) {
+        return { status: "rejected", message: "You declined the allowance request." };
+    }
+    return { status: "error", message: error.message };
+}
 
 export interface ResourceAllocationEntry {
     resource: ResourceAllocationKind;
@@ -32,7 +88,7 @@ export interface ResourceAllocationEntry {
 }
 
 export interface ResourceAllocationState {
-    status: "idle" | "requesting" | "complete" | "unavailable" | "error";
+    status: "idle" | "requesting" | "complete" | "unavailable" | "rejected" | "error";
     entries: readonly ResourceAllocationEntry[];
     error: string | null;
 }
@@ -40,24 +96,42 @@ export interface ResourceAllocationState {
 const INITIAL_RESOURCE_ALLOCATION_ENTRIES: readonly ResourceAllocationEntry[] =
     RESOURCE_ALLOCATION_REQUESTS.map(request => ({ resource: request.tag, outcome: null }));
 
-function isLoopbackHost(hostname: string): boolean {
-    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
-}
-
+// Map the serving URL back to the canonical `<name>.dot` identifier the host
+// derived this app's product account from. This MUST match the host's own
+// derivation: the host enforces account[0] === identifier at signing time, so a
+// mismatch means PermissionDenied on Desktop / a silent signing hang on
+// mobile/web. Override with VITE_PRODUCT_ACCOUNT_ID for anything unusual.
+//
+// Derived structurally rather than from a hardcoded gateway list, so production
+// and test/preview gateways all resolve without a code change:
+//
+//   localhost:5173      → "localhost:5173"  (dev; needs Polkadot Desktop v0.3.2-rc-2+)
+//   app.<name>.dot      → "<name>.dot"      (Desktop serves the `app.` subname)
+//   <name>.dot          → "<name>.dot"      (direct Polkadot Browser navigation)
+//   <name>.<gateway>    → "<name>.dot"      (ANY gateway serves the app from a
+//                                            subdomain whose first label is the
+//                                            product name: dot.li, app.paseo.li,
+//                                            dotli.dev, paseoli.dev, …)
 function getProductAccountIdentifier(): string {
     const configuredIdentifier = import.meta.env.VITE_PRODUCT_ACCOUNT_ID?.trim();
     if (configuredIdentifier) return configuredIdentifier;
 
     const { host, hostname } = window.location;
-    if (isLoopbackHost(hostname)) return host;
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return host;
 
-    // dotli exposes hosted products as `<name>.<gateway>` (always 3 hostname
-    // labels: `playground.dot.li`, `playground-sample.paseo.li`, ...). Map
-    // them back to the canonical `<name>.dot` identifier the host signs.
-    const labels = hostname.toLowerCase().split(".");
-    if (labels.length === 3) return `${labels[0]}.dot`;
+    // A `.dot` host is already the identifier; strip Desktop's `app.` subname so
+    // we return the enforced base name.
+    if (hostname.endsWith(".dot")) {
+        const appSubname = /^app\.(.+\.dot)$/.exec(hostname);
+        return appSubname ? appSubname[1] : hostname;
+    }
 
-    if (hostname.endsWith(".dot")) return hostname;
+    // Otherwise it's a gateway serving `<name>.<gateway-domain>`: the product
+    // name is the leading label. Skip IPv4 literals (first label is numeric).
+    const [firstLabel] = hostname.split(".");
+    if (firstLabel && hostname.includes(".") && !/^\d+$/.test(firstLabel)) {
+        return `${firstLabel}.dot`;
+    }
     return DEFAULT_PRODUCT_ACCOUNT_DOT_NS;
 }
 
@@ -84,22 +158,66 @@ class ProductAccountSignerManager {
     private readonly manager = new SignerManager({
         dappName: this.productAccountIdentifier,
         ss58Prefix: 42,
+        // Defer the host's ChainSubmit ("broadcast signed transactions to any
+        // Substrate chain") permission. The SDK otherwise requests it eagerly at
+        // connect, prompting the user on load — but this app only signs raw
+        // messages and never submits transactions, so we skip that prompt. If you
+        // add a chain write, request ChainSubmit lazily on that path first.
+        createProvider: type =>
+            type === "host"
+                ? new HostProvider({ ss58Prefix: 42, requestChainSubmitPermission: false })
+                : new HostProvider(),
     });
     private readonly subscribers = new Set<(state: SignerState) => void>();
     private readonly resourceSubscribers = new Set<(state: ResourceAllocationState) => void>();
     private state = initialState();
     private resourceAllocationState = initialResourceAllocationState();
     private connectPromise: Promise<Result<SignerAccount[], SignerError>> | null = null;
+    private disposed = false;
+    private readonly teardowns: Array<() => void> = [];
 
     constructor() {
         // connecting/connected transitions are owned by connect() since the wrapper
         // exposes a derived product account. Only mirror mid-session disconnects, and
         // guard against re-firing when connectInner already set disconnected.
-        this.manager.subscribe(underlyingState => {
-            if (underlyingState.status === "disconnected" && this.state.status !== "disconnected") {
-                this.transitionToDisconnected(underlyingState.error);
+        this.teardowns.push(
+            this.manager.subscribe(underlyingState => {
+                if (underlyingState.status === "disconnected" && this.state.status !== "disconnected") {
+                    this.transitionToDisconnected(underlyingState.error);
+                }
+            }),
+        );
+        void this.watchHostConnection();
+    }
+
+    // Auto-reconnect: the host reports when a wallet session appears (the user
+    // logs in / pairs a phone) or drops. On the first load the initial connect()
+    // may fail with NotConnected because no wallet is connected yet; when the
+    // user then logs in, this re-derives the product account without a page
+    // reload. Independent of the SignerManager lifecycle (uses the shared host
+    // transport), so it survives connect()'s failure teardown. No-op outside a
+    // host container (getAccountsProvider is null).
+    private async watchHostConnection() {
+        const accounts = await getAccountsProvider();
+        if (!accounts || this.disposed) return;
+        const subscription = accounts.subscribeAccountConnectionStatus(status => {
+            if (status === "Connected") {
+                // connect() is a no-op while already connected or connecting, so
+                // a redundant "Connected" event can't stack duplicate attempts.
+                if (this.state.status === "disconnected") void this.connect();
+            } else if (status === "Disconnected" && this.state.status !== "disconnected") {
+                this.transitionToDisconnected(null);
             }
         });
+        this.teardowns.push(() => subscription.unsubscribe());
+    }
+
+    // Detach long-lived listeners. Called from the HMR dispose hook so a dev
+    // hot-reload doesn't leave the previous singleton's subscriptions attached
+    // (each would keep firing into a dead instance and stack duplicates).
+    dispose() {
+        this.disposed = true;
+        for (const teardown of this.teardowns.splice(0)) teardown();
     }
 
     private transitionToDisconnected(error: SignerError | null) {
@@ -200,42 +318,52 @@ class ProductAccountSignerManager {
             error: null,
         });
 
-        const truApi = await getTruApi();
-        if (!truApi?.requestResourceAllocation) {
-            const nextState: ResourceAllocationState = {
-                status: "unavailable",
-                entries: requestedEntries,
-                error: "Host does not expose requestResourceAllocation",
-            };
-            this.setResourceAllocationState(nextState);
-            return nextState;
-        }
-
         try {
-            const response = await truApi.requestResourceAllocation(
-                enumValue("v1", [...RESOURCE_ALLOCATION_REQUESTS]),
-            );
-            if (response.isErr()) {
+            const response = await requestResourceAllocation([...RESOURCE_ALLOCATION_REQUESTS]);
+            if (!response.ok) {
+                // Distinguish "outside a host" (unavailable), a user decline
+                // (rejected) and a genuine failure (error) — see
+                // classifyResourceAllocationError.
+                const { status, message } = classifyResourceAllocationError(response.error);
+                // Log the raw shape so the three failure paths (phone rejection
+                // vs. Desktop dialog cancel vs. real error) can be told apart in
+                // a host-gap report: `payload.value.reason` is the only field
+                // that differs, and `classifiedAs: "rejected"` shows whether our
+                // keyword heuristic caught it.
+                allowanceLog.warn("resource allocation failed", {
+                    classifiedAs: status,
+                    errorName: response.error.name,
+                    message: response.error.message,
+                    payload: rawErrorPayload(response.error),
+                });
                 const nextState: ResourceAllocationState = {
-                    status: "error",
+                    status,
                     entries: requestedEntries,
-                    error: response.error.value.message,
+                    error: message,
                 };
                 this.setResourceAllocationState(nextState);
                 return nextState;
             }
-            const outcomes = response.value.value;
+            const outcomes = response.value;
+            const entries = RESOURCE_ALLOCATION_REQUESTS.map((request, index) => ({
+                resource: request.tag,
+                outcome: outcomes[index] ?? "NotAvailable",
+            }));
+            allowanceLog.info("resource allocation complete", { outcomes: entries });
             const nextState: ResourceAllocationState = {
                 status: "complete",
-                entries: RESOURCE_ALLOCATION_REQUESTS.map((request, index) => ({
-                    resource: request.tag,
-                    outcome: outcomes[index]?.tag ?? "NotAvailable",
-                })),
+                entries,
                 error: null,
             };
             this.setResourceAllocationState(nextState);
             return nextState;
         } catch (cause) {
+            allowanceLog.error("resource allocation threw", {
+                errorName: cause instanceof Error ? cause.name : typeof cause,
+                message: cause instanceof Error ? cause.message : String(cause),
+                payload: rawErrorPayload(cause),
+                signingRejection: isSigningRejection(cause),
+            });
             const nextState: ResourceAllocationState = {
                 status: "error",
                 entries: requestedEntries,
@@ -287,6 +415,13 @@ export type { SignerAccount, SignerState };
 
 export const signerManager = new ProductAccountSignerManager();
 
+// Without this, every dev hot-reload constructs a fresh singleton whose
+// subscriptions stack on top of the previous instances' (which never get torn
+// down), so one host event fans out to N stale managers.
+if (import.meta.hot) {
+    import.meta.hot.dispose(() => signerManager.dispose());
+}
+
 export function useSignerState(): SignerState {
     return useSyncExternalStore(
         cb => signerManager.subscribe(cb),
@@ -306,14 +441,9 @@ export async function openExternalLink(url: string) {
         window.open(url, "_blank");
         return;
     }
-    const truApi = await getTruApi();
-    if (!truApi) {
-        window.open(url, "_blank");
-        return;
-    }
     try {
-        const result = await truApi.navigateTo(enumValue("v1", url));
-        if (result.isErr()) window.open(url, "_blank");
+        const result = await navigateTo(url);
+        if (!result.ok) window.open(url, "_blank");
     } catch {
         window.open(url, "_blank");
     }
