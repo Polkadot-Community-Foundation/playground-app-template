@@ -50,7 +50,7 @@ env:
   # Tag the registry card filters on (one of playground-cli's PLAYGROUND_TAGS:
   # social|chat|defi|utility|gaming|marketplace|irl). A developer starter = utility.
   PLAYGROUND_TAG: utility
-  # playground-cli carries the `--env paseo-next` wiring AND resolves the @w3s CDM
+  # playground-cli carries the `--env devnet` wiring AND resolves the @w3s CDM
   # meta-registry (0xa5747e60…0141) via @polkadot-community-foundation/cdm-env.
   # It is a PRIVATE package (not on npm) distributed as paritytech release
   # binaries that DON'T carry the Summit cdm-env — so we build the PCF fork from
