@@ -81,11 +81,15 @@ jobs:
           timeout_minutes: 15
           max_attempts: 3
           retry_wait_seconds: 30
+          # No --config: the manifest leg creates app.playground-template.dot, and
+          # polkadot-app-deploy 0.16.6 still encodes the 4-field v0.6 SubnodeRecord,
+          # which the v0.8.0 registry rejects (bare revert). The name has always been
+          # a plain (non-manifest) product on devnet; restore --config once the CLI
+          # carries the 5-field struct.
           command: >
             polkadot-app-deploy
             --env devnet
             --mnemonic "$MNEMONIC"
-            --config ./polkadot-app-deploy.config.ts
             --js-merkle
             --publish
             --no-transfer-to-signedin-user
