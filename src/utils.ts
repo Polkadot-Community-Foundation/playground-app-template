@@ -101,8 +101,8 @@ function rawErrorPayload(error: unknown): unknown {
 const RESOURCE_ALLOCATION_REQUESTS = [
     { tag: "StatementStoreAllowance", value: undefined },
     { tag: "BulletinAllowance", value: undefined },
-    // truapi 0.17 (codec 2): the allowance's derivation index is a tagged
-    // union — `Index` for plain enumerable indices, `Raw` for 32-byte indices.
+    // The allowance's derivation index is a tagged union — `Index` for plain
+    // enumerable indices, `Raw` for 32-byte indices.
     { tag: "SmartContractAllowance", value: { tag: "Index", value: PRODUCT_ACCOUNT_DERIVATION_INDEX } },
     { tag: "AutoSigning", value: undefined },
 ] as const satisfies ReadonlyArray<AllocatableResource>;

@@ -24,7 +24,7 @@ When you're ready, deploy your fork to your own DotNS domain (see below) — no 
 
 - **React 19** + **Vite** + **TypeScript**
 - **`@parity/product-sdk-signer`** — Host signer management and app-scoped product-account signing
-- **`@parity/product-sdk-host`** — Host API helpers for the Polkadot host (Mobile, Desktop, or Web); built on **`@parity/truapi`** (codec 2 — requires a codec-2 host build)
+- **`@parity/product-sdk-host`** — Host API helpers for the Polkadot host (Mobile, Desktop, or Web); built on **`@parity/truapi`** 0.25 (requires a host build on truapi 0.25)
 - **`@parity/product-sdk-chain-client`** (+ `-descriptors`) — host-routed chain reads (no direct RPC), used for the Paseo Asset Hub block + account panel
 
 ## Running
