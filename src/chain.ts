@@ -96,8 +96,8 @@ export function useChainBlock(): ChainBlockState {
             });
         })().catch(cause => {
             clearTimeout(timer);
-            // Tear down the connection if we got one before failing, so a
-            // mounted error state doesn't hold an unused chain client open.
+            // Give back our hold on the chain if we got one before failing,
+            // so a mounted error state doesn't keep it open.
             client?.destroy();
             client = null;
             fail(cause);
@@ -138,11 +138,11 @@ export interface ProductAccountChainInfo {
 
 // One-shot on-chain reads for the product account on devnet Asset Hub (Paseo): whether
 // it's mapped, and — once the host allowance has been granted — its PGAS
-// balance. Reuses the host-routed client that `createChainClient` memoizes (the
-// same one `useChainBlock` opens); it deliberately does NOT destroy that client,
-// since teardown is global and owned by useChainBlock's unmount. Reads are
-// point-in-time (no subscription): mapping and gas provisioning change rarely,
-// and the effect re-runs when `allowanceGranted` flips to pull the PGAS balance.
+// balance. `createChainClient` keeps one host-routed client per chain for the
+// whole product, so this shares the follow `useChainBlock` opens; `destroy()`
+// only gives back this effect's hold. Reads are point-in-time (no
+// subscription): mapping and gas provisioning change rarely, and the effect
+// re-runs when `allowanceGranted` flips to pull the PGAS balance.
 export function useProductAccountChainInfo(
     address: string | null,
     allowanceGranted: boolean,
@@ -160,12 +160,17 @@ export function useProductAccountChainInfo(
             return;
         }
         let cancelled = false;
+        let client: { destroy(): void } | null = null;
         setState(prev => ({ ...prev, status: "loading", error: null }));
 
         (async () => {
-            const client = await createChainClient({ chains: { assetHub: devnet_asset_hub } });
-            if (cancelled) return;
-            const api = client.assetHub;
+            const chainClient = await createChainClient({ chains: { assetHub: devnet_asset_hub } });
+            if (cancelled) {
+                chainClient.destroy();
+                return;
+            }
+            client = chainClient;
+            const api = chainClient.assetHub;
 
             const mappedTo = await api.query.Revive.OriginalAccount.getValue(ss58ToH160(address));
             if (cancelled) return;
@@ -198,6 +203,7 @@ export function useProductAccountChainInfo(
 
         return () => {
             cancelled = true;
+            client?.destroy();
         };
     }, [address, allowanceGranted]);
 
